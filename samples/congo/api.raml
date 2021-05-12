@@ -1,0 +1,126 @@
+#%RAML 1.0
+title: Congo API For Drone Deliveries
+baseUri: http://localhost:8080
+mediaType: application/json
+types:
+  User:
+    properties:
+        firstName:
+          type: string
+        lastName:
+        age:
+          type: integer
+        height:
+          type: number
+        iscrazy:
+          type: boolean
+        dob:
+          type: date
+        assets:
+          type: string
+          enum: [ car, motor, house ]
+  EnumAddress:
+    type: string
+    enum: [ city a, city b ]   
+/deliveries:
+  get:
+    description: Get a list of deliveries
+    queryParameters:
+      sinceDate:
+        type: date
+        example: Mon, 14 Jul 2014 07:00:00 GMT
+      throughDate:
+        type: date
+        example: Mon, 18 Jul 2014 07:00:00 GMT
+    responses:
+      200:
+        body:
+          application/json:
+            type: User
+  post:
+    description: Create/request a new delivery
+    body:
+      type: User
+    responses:
+      201:
+        headers:
+          Location:
+        body:
+          application/json:
+            type: User
+  /{deliveryId}:
+    get:
+      description: Get information on a specific delivery
+      responses:
+        200:
+          body:
+            application/json:
+              type: User
+    patch:
+      description: Update the information on a specific delivery
+      body:
+        type: User
+      responses:
+        200:
+          body:
+            application/json:
+              type: User
+    delete:
+      description: Cancel a specific delivery
+      responses:
+        204:
+/drones:
+  get:
+    description: Get a list of drones
+    queryParameters:
+      atLatitude:
+        description: Latitude in decimal degrees
+        type: number
+        example: 37.8
+      atLongitude:
+        description: Longitude in decimal degrees
+        type: number
+        example: -122.3
+      atAltitude:
+        description: Altitude in meters above the [ellipsoid](http://www.w3.org/TR/geolocation-API/#ref-wgs)
+        type: number
+        example: 0
+      atRange:
+        description: Maximum distance from location, in meters
+        type: number
+        example: 50
+        default: 100
+    responses:
+      200:
+        body:
+          type: User
+  post:
+    description: Add a new drone to the fleet
+    body:
+      type: User
+  /{droneId}:
+    get:
+      description: Get information on a specific drone
+      responses:
+        200:
+          body:
+            type: User
+    patch:
+      description: Update the information on a specific drone
+      body:
+        type: User
+      responses:
+        200:
+          body:
+            type: User
+    delete:
+      description: Remove a drone from the fleet
+      responses:
+        204:
+    /deliveries:
+      get:
+        description: The deliveries scheduled for the current drone
+        responses:
+          200:
+            body:
+              type: User

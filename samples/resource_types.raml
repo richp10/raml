@@ -1,0 +1,125 @@
+#%RAML 1.0
+title: Example API
+version: v1
+mediaType: application/json
+types:
+  Users:
+  User:
+resourceTypes:
+  collection:
+      description: The collection of <<resourcePathName>>
+      get:
+        description: Get all <<resourcePathName>>, optionally filtered
+        displayName: ListAll<<resourcePathName>>
+        responses:
+          200:
+            body:
+              type: <<resourcePathName>> # e.g. Users
+      post:
+        description: Create a new <<resourcePathName | !singularize | !uppercamelcase>>
+        body:
+          application/json:
+            type: <<resourcePathName | !singularize>>
+        responses:
+          200:
+            body:
+              type: <<resourcePathName | !singularize>>  # e.g. User
+  member:
+      get:
+        description : get <<resourcePath>>
+        responses:
+          200:
+            body:
+              type: <<resourcePathName>> # e.g. User
+  corpResource:
+      post?:
+        body:
+          application/json:
+            properties:
+              name: string
+              age: int
+        headers:
+          X-Chargeback:
+            required: true
+      get?:
+        description: Get all <<resourcePathName>>
+  searchableCollection:
+     get:
+       queryParameters:
+         <<queryParamName>>:
+           description: Return <<resourcePathName>> that have their <<queryParamName>> matching the given value
+         <<fallbackParamName>>:
+           description: If no values match the value given for <<queryParamName>>, use <<fallbackParamName>> instead
+         platform:
+           enum:
+             - win
+             - mac
+  file:
+      put:
+        is: [ drm ]
+traits:
+  secured:
+     description: requests to <<methodName>> require authentication
+     queryParameters:
+       <<tokenName>>:
+         description: A valid <<tokenName>> is required
+  paged:
+      queryParameters:
+        numPages:
+          description: The number of pages to return, not to exceed <<maxPages>>
+          type: integer
+          default: 1
+          minimum: 1
+          required: true
+  hasPayload:
+      body:
+        application/json:
+          properties:
+            name:
+            address\?:
+            location?:
+  drm:
+     headers:
+       drm-key:
+         required: true
+  ordered:
+    queryParameters:
+      orderBy:
+        description: Order by field
+        enum: <<filterValues>>
+
+/Users:
+  type: collection
+  #is: [ secured ]
+  get:
+    is: [ paged : { maxPages: 10}, rateLimited ] # this method is also secured
+
+/queues:
+  type: corpResource
+  get:
+    displayName: get
+  # will not have a post method defined
+
+/corps:
+  type: corpResource
+  post:
+    description: create corp
+  /{id}:
+    type: member
+
+/books:
+  type: { searchableCollection: { queryParamName: title, fallbackParamName: digest_all_fields } }
+  get:
+    displayName : get all books
+    is: [ secured: { tokenName: access_token }, paged: { maxPages: 10 } ]
+    queryParameters:
+      platform: #the actual enum is [ mac, unix, win ]
+        enum:
+          - mac
+          - unix
+
+/servers:
+  post:
+    is: [ hasPayload ]
+    # will have application/json body with 'name' required property,
+    # 'address' optional property, but without 'location' property

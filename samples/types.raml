@@ -1,0 +1,29 @@
+#%RAML 1.0
+title: test
+mediaType: application/json
+
+types:
+  Action:
+    properties:
+      name: string
+      recurring:
+        type: object
+        properties:
+          period:
+            type: integer
+          combo:
+            properties:
+              type_in_combo: string
+      coininputs:
+        type: array
+        items:
+          properties:
+            parentid: string
+      coinTipes:
+        type: array
+        items:
+          type: number
+          format: double
+      coinTipesPlain:
+        type: array
+        items: string

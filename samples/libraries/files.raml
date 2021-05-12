@@ -1,0 +1,30 @@
+#%RAML 1.0 Library
+# This file is located at libraries/files.raml
+usage: Use to define some basic file-related constructs.
+uses:
+  file-type: libraries/file-type.raml
+traits:
+  drm:
+    headers:
+      drm-key:
+
+types:
+  Link:
+    type: object
+    properties:
+      name: string
+resourceTypes:
+  link:
+    post:
+      body:
+        type: Link
+  file:
+    get:
+      is: [ drm ]
+      responses:
+        201:
+          body:
+            application/json:
+              type: file-type.File
+    put:
+      is: [ drm ]

@@ -1,2 +1,3 @@
 # raml
-A model and helpers for a RAML 1.0 specification
+
+An implementation of a RAML parser for Go. Compliant with RAML 1.0.
