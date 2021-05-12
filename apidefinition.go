@@ -107,11 +107,11 @@ func (apiDef *APIDefinition) PostProcess(workDir, fileName string) error {
 		workDir = filepath.Join(workDir, filepath.Dir(fileName))
 	}
 
-	for name, path := range apiDef.Uses {
-		lib := &Library{Filename: path}
-		if _, err := ParseReadFile(workDir, path, lib); err != nil {
+	for name, useFileName := range apiDef.Uses {
+		lib := &Library{Filename: useFileName}
+		if _, err := ParseReadFile(workDir, useFileName, lib); err != nil {
 			return fmt.Errorf("apiDef.PostProcess() failed to parse library	name=%v, path=%v\n\terr=%v",
-				name, path, err)
+				name, useFileName, err)
 		}
 		apiDef.Libraries[name] = lib
 	}
@@ -130,7 +130,10 @@ func (apiDef *APIDefinition) PostProcess(workDir, fileName string) error {
 
 	// types
 	for name, t := range apiDef.Types {
-		t.postProcess(name, apiDef)
+		err := t.postProcess(name, apiDef)
+		if err != nil {
+			return err
+		}
 		apiDef.Types[name] = t
 	}
 
@@ -232,10 +235,9 @@ func (apiDef *APIDefinition) allTraits(trts map[string]Trait, libraries map[stri
 func (apiDef *APIDefinition) createType(name string, tip interface{},
 	inputProps map[interface{}]interface{}) bool {
 
-	created := false
 	// check that there is no type with this name
 	if _, exist := apiDef.Types[name]; exist {
-		return created
+		return false
 	}
 
 	// convert the inputProps to properties
@@ -255,6 +257,5 @@ func (apiDef *APIDefinition) createType(name string, tip interface{},
 		Properties: props,
 	}
 	apiDef.Types[name] = t
-	created = true
-	return created
+	return true
 }

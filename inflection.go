@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"bitbucket.org/pkg/inflect"
-	chuck_inflect "github.com/chuckpreslar/inflect"
-	jinzhu_inflection "github.com/jinzhu/inflection"
+	chuckinflect "github.com/chuckpreslar/inflect"
+	jinzhuinflection "github.com/jinzhu/inflection"
 )
 
 var inflectFunc = map[string]func(string) string{
@@ -31,12 +31,12 @@ func doInflect(s, op string) (string, bool) {
 
 // singularize returns singular version of a word
 func singularize(s string) string {
-	return jinzhu_inflection.Singular(s)
+	return jinzhuinflection.Singular(s)
 }
 
 // pluralize returns plural version of a word
 func pluralize(s string) string {
-	return chuck_inflect.Pluralize(s)
+	return chuckinflect.Pluralize(s)
 }
 
 // upperCase returns upper case version of a word
@@ -74,10 +74,10 @@ func upperUnderScoreCase(s string) string {
 
 // lowerHyphenCase returns lower case hyphenated version of a word
 func lowerHyphenCase(s string) string {
-	return strings.ToLower(chuck_inflect.Hyphenate(s))
+	return strings.ToLower(chuckinflect.Hyphenate(s))
 }
 
 // upperHyphenCase returns upper case hyphenated version of a word
 func upperHyphenCase(s string) string {
-	return strings.ToUpper(chuck_inflect.Hyphenate(s))
+	return strings.ToUpper(chuckinflect.Hyphenate(s))
 }

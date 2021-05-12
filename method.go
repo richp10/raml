@@ -86,7 +86,7 @@ func (m *Method) postProcess(r *Resource, name string, traitsMap map[string]Trai
 // fields need to be inherited:
 // - description
 // - response
-func (m *Method) inheritFromResourceType(r *Resource, rtm *Method, rt *ResourceType, apiDef *APIDefinition) {
+func (m *Method) inheritFromResourceType(r *Resource, rtm *Method, apiDef *APIDefinition) {
 	if rtm == nil {
 		return
 	}
@@ -195,7 +195,7 @@ func (m *Method) inheritQueryParams(parents map[string]NamedParameter, dicts map
 	for name, parent := range parents {
 		qp, ok := m.QueryParameters[name]
 		if !ok {
-			if optionalTraitProperty(string(name)) { // don't inherit optional property if not exist
+			if optionalTraitProperty(name) { // don't inherit optional property if not exist
 				continue
 			}
 			qp = NamedParameter{Name: name}
