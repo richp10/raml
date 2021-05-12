@@ -550,7 +550,7 @@ func interfaceToString(data interface{}) string {
 		return data.(string)
 	case []interface{}:
 		interfaceArr := data.([]interface{})
-		results := []string{}
+		var results []string
 		for _, v := range interfaceArr {
 			results = append(results, interfaceToString(v))
 		}
@@ -618,7 +618,7 @@ func (t Type) Union() ([]string, bool) {
 	if !t.IsUnion() {
 		return nil, false
 	}
-	tips := []string{}
+	var tips []string
 	for _, ut := range strings.Split(t.TypeString(), "|") {
 		tips = append(tips, strings.TrimSpace(ut))
 	}

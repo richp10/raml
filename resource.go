@@ -136,7 +136,7 @@ func (r *Resource) inheritMethods(rt *ResourceType, apiDef *APIDefinition) {
 			r.assignMethod(m, m.Name)
 		}
 		m.resourceTypeName = r.Type.Name
-		m.inheritFromResourceType(r, rtm, rt, apiDef)
+		m.inheritFromResourceType(r, rtm, apiDef)
 	}
 
 	// inherit optional methods if only the resource also has the method
@@ -146,7 +146,7 @@ func (r *Resource) inheritMethods(rt *ResourceType, apiDef *APIDefinition) {
 			continue
 		}
 		m.resourceTypeName = r.Type.Name
-		m.inheritFromResourceType(r, rtm, rt, apiDef)
+		m.inheritFromResourceType(r, rtm, apiDef)
 	}
 
 }

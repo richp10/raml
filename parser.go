@@ -43,9 +43,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/gigforks/yaml"
 	"github.com/kr/pretty"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -91,7 +91,7 @@ func ParseReadFile(workDir, fileName string, root Root) ([]byte, error) {
 	var ramlVersion string
 	firstLine, err := mainFileBuffer.ReadString('\n')
 	if err != nil {
-		return []byte{}, fmt.Errorf("Problem reading RAML file (Error: %s)", err.Error())
+		return []byte{}, fmt.Errorf("problem reading RAML file (Error: %s)", err.Error())
 	}
 
 	// We read some data...
@@ -99,8 +99,7 @@ func ParseReadFile(workDir, fileName string, root Root) ([]byte, error) {
 		ramlVersion = firstLine[:10]
 	}
 	if ramlVersion != "#%RAML 1.0" {
-		return []byte{}, errors.New("Input file is not a RAML 1.0 file. Make " +
-			"sure the file starts with #%RAML 1.0")
+		return []byte{}, errors.New("input file is not a RAML 1.0 file. Make  sure the file starts with #%RAML 1.0")
 	}
 
 	// Pre-process the original file, following !include directive
@@ -109,7 +108,7 @@ func ParseReadFile(workDir, fileName string, root Root) ([]byte, error) {
 
 	if err != nil {
 		return []byte{},
-			fmt.Errorf("Error preprocessing RAML file (Error: %s)", err.Error())
+			fmt.Errorf("error preprocessing RAML file (Error: %s)", err.Error())
 	}
 
 	if log.GetLevel() == log.DebugLevel {
@@ -170,14 +169,14 @@ func readFileContents(workingDirectory string, fileName string) ([]byte, error) 
 	filePath := filepath.Join(workingDirectory, fileName)
 
 	if fileName == "" {
-		return nil, fmt.Errorf("File name cannot be nil: %s", filePath)
+		return nil, fmt.Errorf("file name cannot be nil: %s", filePath)
 	}
 
 	// Read the file
 	fileContentsArray, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil,
-			fmt.Errorf("Could not read file %s (Error: %s)",
+			fmt.Errorf("could not read file %s (Error: %s)",
 				filePath, err.Error())
 	}
 
@@ -284,7 +283,7 @@ func preProcess(originalContents io.Reader, workingDirectory string) ([]byte, er
 
 	// Any errors encountered?
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("Error reading YAML file: %s", err.Error())
+		return nil, fmt.Errorf("error reading YAML file: %s", err.Error())
 	}
 	// Return the preprocessed contents
 	return preprocessedContents.Bytes(), nil
