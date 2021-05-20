@@ -34,6 +34,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/gigforks/yaml"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -42,10 +43,6 @@ import (
 	"reflect"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/gigforks/yaml"
-	"github.com/kr/pretty"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -103,16 +100,10 @@ func ParseReadFile(workDir, fileName string, root Root) ([]byte, error) {
 	}
 
 	// Pre-process the original file, following !include directive
-	preprocessedContentsBytes, err :=
-		preProcess(mainFileBuffer, workDir)
+	preprocessedContentsBytes, err := preProcess(mainFileBuffer, workDir)
 
 	if err != nil {
-		return []byte{},
-			fmt.Errorf("error preprocessing RAML file (Error: %s)", err.Error())
-	}
-
-	if log.GetLevel() == log.DebugLevel {
-		pretty.Println(string(preprocessedContentsBytes))
+		return []byte{}, fmt.Errorf("error preprocessing RAML file (Error: %s)", err.Error())
 	}
 
 	// Unmarshal into an APIDefinition value
@@ -148,8 +139,8 @@ func ParseReadFile(workDir, fileName string, root Root) ([]byte, error) {
 // read raml file/url
 func readFileOrURL(workingDir, fileName string) ([]byte, error) {
 	// read from URL if it is an URL, otherwise read from local file.
-	if isURL(fileName) {
-		return readURL(fileName)
+	if url := strings.Join([]string{workingDir, fileName}, ""); isURL(url) {
+		return readURL(url)
 	}
 	return readFileContents(workingDir, fileName)
 }
@@ -176,8 +167,7 @@ func readFileContents(workingDirectory string, fileName string) ([]byte, error) 
 	fileContentsArray, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return nil,
-			fmt.Errorf("could not read file %s (Error: %s)",
-				filePath, err.Error())
+			fmt.Errorf("could not read file %s (Error: %s)", filePath, err.Error())
 	}
 
 	return fileContentsArray, nil
@@ -222,13 +212,10 @@ func preProcess(originalContents io.Reader, workingDirectory string) ([]byte, er
 			preprocessedContents.Write([]byte(line[:idx]))
 
 			// Get the included file contents
-			includedContents, err :=
-				readFileOrURL(workingDirectory, included)
-
+			includedContents, err := readFileOrURL(workingDirectory, included)
 			if err != nil {
-				return nil,
-					fmt.Errorf("Error including file %s:\n    %s",
-						included, err.Error())
+				return nil, fmt.Errorf("Error including file %s:\n    %s",
+					included, err.Error())
 			}
 
 			// we only parse utf8 content
@@ -252,8 +239,7 @@ func preProcess(originalContents io.Reader, workingDirectory string) ([]byte, er
 
 			// TODO: Better, step by step checks .. though prolly it'll panic
 			// Write text files in the same indentation as the first line
-			internalScanner :=
-				bufio.NewScanner(bytes.NewBuffer(includedContents))
+			internalScanner := bufio.NewScanner(bytes.NewBuffer(includedContents))
 
 			// Indent by this much
 			firstLine := true

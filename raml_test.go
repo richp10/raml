@@ -31,9 +31,8 @@ package raml
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"testing"
-
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 // TODO: Way, way more serious tests.
@@ -81,29 +80,31 @@ func TestParsing(t *testing.T) {
 		} else {
 			fmt.Printf("Successfully parsed file %s!\n", fileName)
 		}
-
-		/*if apiDefinition.RAMLVersion != "#%RAML 1.0" {
-		t.Fatalf("Detected erroneous RAML version: %s",
-			apiDefinition.RAMLVersion)
-		}*/
-
-		// 	pretty.Println(apiDefinition)
 	}
 }
 
 func TestMethodStringer(t *testing.T) {
-	Convey("method stringer", t, func() {
-		def := new(APIDefinition)
-		err := ParseFile("./samples/simple_example.raml", def)
-		So(err, ShouldBeNil)
+	asserter := assert.New(t)
+	def := new(APIDefinition)
+	err := ParseFile("./samples/simple_example.raml", def)
+	asserter.NoError(err)
 
-		r := def.Resources["/resources"]
-		So(r.Get.Name, ShouldEqual, "GET")
+	r := def.Resources["/resources"]
+	asserter.Equal("GET", r.Get.Name)
 
-		n := r.Nested["/{resourceId}"]
-		So(n.Get.Name, ShouldEqual, "GET")
-		So(n.Put.Name, ShouldEqual, "PUT")
-		So(n.Delete.Name, ShouldEqual, "DELETE")
+	n := r.Nested["/{resourceId}"]
+	asserter.Equal("GET", n.Get.Name)
+	asserter.Equal("PUT", n.Put.Name)
+	asserter.Equal("DELETE", n.Delete.Name)
+}
 
-	})
+func TestRemoteParsing(t *testing.T) {
+	asserter := assert.New(t)
+
+	def := new(APIDefinition)
+	err := ParseFile("https://raw.githubusercontent.com/raml-org/raml-tutorial-200/master/jukebox-api.raml", def)
+	asserter.NoError(err)
+	asserter.Equal("Jukebox API", def.Title)
+	asserter.Len(def.Types, 3)
+	asserter.Len(def.Types["song"].Properties, 3)
 }
