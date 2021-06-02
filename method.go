@@ -65,21 +65,26 @@ func newMethod(name string) *Method {
 }
 
 // doing post processing that can't be done by YAML parser
-func (m *Method) postProcess(r *Resource, name string, traitsMap map[string]Trait, apiDef *APIDefinition) {
+func (m *Method) postProcess(r *Resource, name string, traitsMap map[string]Trait, apiDef *APIDefinition) error {
 	m.Name = name
-	m.inheritFromTraits(r, append(r.Is, m.Is...), traitsMap, apiDef)
+	err := m.inheritFromTraits(r, append(r.Is, m.Is...), traitsMap, apiDef)
+	if err != nil {
+		return err
+	}
 	r.Methods = append(r.Methods, m)
 
 	// post process the responses
-	resps := make(map[HTTPCode]Response)
+	responses := make(map[HTTPCode]Response)
 	for code, resp := range m.Responses {
 		resp.postProcess()
-		resps[code] = resp
+		responses[code] = resp
 	}
-	m.Responses = resps
+	m.Responses = responses
 
 	// post process request body
 	m.Bodies.postProcess()
+
+	return nil
 }
 
 // inherit from resource type
@@ -335,12 +340,14 @@ type Bodies struct {
 	Description string `yaml:"description"`
 
 	// As in the Body type.
-	Example string `yaml:"example"`
+	//TODO: fix example unmarshalling: https://github.com/raml-org/raml-spec/blob/master/versions/raml-10/raml-10.md/#defining-examples-in-raml
+	Example string `yaml:"-"`
 
 	// Resources CAN have alternate representations. For example, an API
 	// might support both JSON and XML representations. This is the map
 	// between MIME-type and the body definition related to it.
-	ForMIMEType map[string]Body `yaml:",regexp:.*"`
+	//TODO: fix yaml unmarshalling here
+	ForMIMEType map[string]Body `yaml:"-"`
 
 	// TODO: For APIs without a priori knowledge of the response types for
 	// their responses, "*/*" MAY be used to indicate that responses that do

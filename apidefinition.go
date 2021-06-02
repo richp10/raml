@@ -2,10 +2,13 @@ package raml
 
 import (
 	"fmt"
-	"path"
+	"gopkg.in/yaml.v3"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
+
+var resourceRegexp = regexp.MustCompile("^/.*$")
 
 // APIDefinition describes the basic information of an API, such as its
 // title and base URI, and describes how to define common schema references.
@@ -72,7 +75,7 @@ type APIDefinition struct {
 	// Declarations of resource types for use within the API.
 	ResourceTypes map[string]ResourceType `yaml:"resourceTypes"`
 
-	// TODO : annontation types
+	// TODO : annotations types
 
 	// Declarations of security schemes for use within the API.
 	SecuritySchemes map[string]SecurityScheme `yaml:"securitySchemes"`
@@ -86,11 +89,45 @@ type APIDefinition struct {
 	// The resources of the API, identified as relative URIs that begin with a slash (/).
 	// A resource property is one that begins with the slash and is either
 	// at the root of the API definition or a child of a resource property. For example, /users and /{groupId}.
-	Resources map[string]Resource `yaml:",regexp:/.*"`
+	Resources map[string]Resource `yaml:"-"`
 
 	Libraries map[string]*Library `yaml:"-"`
 
 	Filename string
+}
+
+//UnmarshalYAML will process most fields through the regular decode functionality, but adds extra logic for resources
+func (d *APIDefinition) UnmarshalYAML(node *yaml.Node) error {
+	type clone APIDefinition
+
+	c := clone{}
+	if err := node.Decode(&c); err != nil {
+		return err
+	}
+
+	var resources = map[string]Resource{}
+	for i, childNode := range node.Content {
+		if resourceRegexp.MatchString(childNode.Value) {
+			var resource = Resource{}
+			//We fetch the next node, which contains the actual data for the resource
+			var mapNode = node.Content[i+1]
+			if mapNode.Tag != "!!map" {
+				continue
+			}
+
+			err := mapNode.Decode(&resource)
+			if err != nil {
+				return err
+			}
+			resources[childNode.Value] = resource
+		}
+	}
+
+	c.Resources = resources
+
+	*d = APIDefinition(c)
+
+	return nil
 }
 
 // PostProcess doing additional processing
@@ -98,68 +135,65 @@ type APIDefinition struct {
 // - inheritance
 // - setting some additional values not exist in the .raml
 // - allocate map fields
-func (apiDef *APIDefinition) PostProcess(workDir, fileName string) error {
-	apiDef.Filename = path.Join(workDir, fileName)
-	// libraries
-	apiDef.Libraries = map[string]*Library{}
+func (d *APIDefinition) PostProcess(workDir, fileName string) error {
+	d.Filename = strings.Join([]string{workDir, fileName}, "")
+	d.Libraries = map[string]*Library{}
 
-	if !isURL(fileName) {
-		workDir = filepath.Join(workDir, filepath.Dir(fileName))
-	}
+	for name, useFileName := range d.Uses {
+		lib := &Library{Filename: strings.Join([]string{workDir, useFileName}, "")}
 
-	for name, useFileName := range apiDef.Uses {
-		lib := &Library{Filename: useFileName}
 		if _, err := ParseReadFile(workDir, useFileName, lib); err != nil {
-			return fmt.Errorf("apiDef.PostProcess() failed to parse library	name=%v, path=%v\n\terr=%v",
-				name, useFileName, err)
+			return fmt.Errorf("d.PostProcess() failed to parse library	name=%v, path=%v\n\terr=%v", name, useFileName, err)
 		}
-		apiDef.Libraries[name] = lib
+		d.Libraries[name] = lib
 	}
 
 	// traits
-	for name, t := range apiDef.Traits {
+	for name, t := range d.Traits {
 		t.postProcess(name)
-		apiDef.Traits[name] = t
+		d.Traits[name] = t
 	}
 
 	// resource types
-	for name, rt := range apiDef.ResourceTypes {
-		rt.postProcess(name, apiDef.Traits, apiDef)
-		apiDef.ResourceTypes[name] = rt
-	}
-
-	// types
-	for name, t := range apiDef.Types {
-		err := t.postProcess(name, apiDef)
+	for name, rt := range d.ResourceTypes {
+		err := rt.postProcess(name, d.Traits, d)
 		if err != nil {
 			return err
 		}
-		apiDef.Types[name] = t
+		d.ResourceTypes[name] = rt
+	}
+
+	// types
+	for name, t := range d.Types {
+		err := t.postProcess(name, d)
+		if err != nil {
+			return err
+		}
+		d.Types[name] = t
 	}
 
 	// resources
-	for k := range apiDef.Resources {
-		r := apiDef.Resources[k]
-		rts := apiDef.allResourceTypes(apiDef.ResourceTypes, apiDef.Libraries)
-		trts := apiDef.allTraits(apiDef.Traits, apiDef.Libraries)
-		if err := r.postProcess(k, nil, rts, trts, apiDef); err != nil {
+	for k := range d.Resources {
+		r := d.Resources[k]
+		rts := d.allResourceTypes(d.ResourceTypes, d.Libraries)
+		traits := d.allTraits(d.Traits, d.Libraries)
+		if err := r.postProcess(k, nil, rts, traits, d); err != nil {
 			return err
 		}
-		apiDef.Resources[k] = r
+		d.Resources[k] = r
 	}
 	return nil
 }
 
-// FindLibFile find lbrary dir and file by it's name
-// we also search from included library
-func (apiDef *APIDefinition) FindLibFile(name string) (string, string) {
+// FindLibFile find library dir and file by it's name we also search from included library
+func (d *APIDefinition) FindLibFile(name string) (string, string) {
 	// search in it's document
-	if filename, ok := apiDef.Uses[name]; ok {
+	if filename, ok := d.Uses[name]; ok {
 		return "", filename
 	}
 
 	// search in included libraries
-	for _, lib := range apiDef.Libraries {
+	for _, lib := range d.Libraries {
 		if filename, ok := lib.Uses[name]; ok {
 			return filepath.Dir(lib.Filename), filename
 		}
@@ -169,7 +203,7 @@ func (apiDef *APIDefinition) FindLibFile(name string) (string, string) {
 
 // GetSecurityScheme gets security scheme by it's name
 // it also search in included library
-func (apiDef *APIDefinition) GetSecurityScheme(name string) (SecurityScheme, bool) {
+func (d *APIDefinition) GetSecurityScheme(name string) (SecurityScheme, bool) {
 	var ss SecurityScheme
 	var ok bool
 
@@ -179,10 +213,10 @@ func (apiDef *APIDefinition) GetSecurityScheme(name string) (SecurityScheme, boo
 
 	switch len(splitted) {
 	case 1:
-		ss, ok = apiDef.SecuritySchemes[name]
+		ss, ok = d.SecuritySchemes[name]
 	case 2:
 		var l *Library
-		l, ok = apiDef.Libraries[splitted[0]]
+		l, ok = d.Libraries[splitted[0]]
 		if !ok {
 			return ss, false
 		}
@@ -195,7 +229,7 @@ func (apiDef *APIDefinition) GetSecurityScheme(name string) (SecurityScheme, boo
 // resource types could be from:
 // - this document itself
 // - libraries
-func (apiDef *APIDefinition) allResourceTypes(rts map[string]ResourceType, libraries map[string]*Library) map[string]ResourceType {
+func (d *APIDefinition) allResourceTypes(rts map[string]ResourceType, libraries map[string]*Library) map[string]ResourceType {
 	if len(rts) == 0 {
 		rts = map[string]ResourceType{}
 	}
@@ -205,7 +239,7 @@ func (apiDef *APIDefinition) allResourceTypes(rts map[string]ResourceType, libra
 		}
 		// Recursively processing siblings
 		if l.Libraries != nil {
-			apiDef.allResourceTypes(rts, l.Libraries)
+			d.allResourceTypes(rts, l.Libraries)
 		}
 	}
 	return rts
@@ -215,28 +249,28 @@ func (apiDef *APIDefinition) allResourceTypes(rts map[string]ResourceType, libra
 // traits could be from:
 // - the root APIDefinition
 // - libraries
-func (apiDef *APIDefinition) allTraits(trts map[string]Trait, libraries map[string]*Library) map[string]Trait {
-	if len(trts) == 0 {
-		trts = map[string]Trait{}
+func (d *APIDefinition) allTraits(traits map[string]Trait, libraries map[string]*Library) map[string]Trait {
+	if len(traits) == 0 {
+		traits = map[string]Trait{}
 	}
 	for libName, l := range libraries {
 		for trtName, trt := range l.Traits {
-			trts[libName+"."+trtName] = trt
+			traits[libName+"."+trtName] = trt
 		}
 		// Recursively processing siblings
 		if l.Libraries != nil {
-			apiDef.allTraits(trts, l.Libraries)
+			d.allTraits(traits, l.Libraries)
 		}
 	}
-	return trts
+	return traits
 }
 
 // create new type
-func (apiDef *APIDefinition) createType(name string, tip interface{},
+func (d *APIDefinition) createType(name string, tip interface{},
 	inputProps map[interface{}]interface{}) bool {
 
 	// check that there is no type with this name
-	if _, exist := apiDef.Types[name]; exist {
+	if _, exist := d.Types[name]; exist {
 		return false
 	}
 
@@ -256,6 +290,6 @@ func (apiDef *APIDefinition) createType(name string, tip interface{},
 		Type:       tip,
 		Properties: props,
 	}
-	apiDef.Types[name] = t
+	d.Types[name] = t
 	return true
 }

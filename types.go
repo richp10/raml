@@ -165,9 +165,6 @@ type Property struct {
 	UniqueItems bool
 	Items       Items
 
-	// Capnp extension
-	CapnpType string
-
 	_type *Type // pointer to Type of this Property
 }
 
@@ -238,8 +235,6 @@ func toProperty(name string, p interface{}) Property {
 				p.UniqueItems = v.(bool)
 			case "items":
 				p.Items = newItems(v)
-			case "capnpType":
-				p.CapnpType = v.(string)
 			case "properties":
 				log.Fatalf("Properties field of '%v' should already be deleted. Seems there are unsupported inline type", name)
 			}
@@ -646,8 +641,14 @@ func (t *Type) postProcess(name string, apiDef *APIDefinition) error {
 	// process type in properties
 	for name := range t.Properties {
 		t.parseOptionalProperty(name)
-		t.createTypeFromPropProperty(name, apiDef)
-		t.createTypeFromPropItems(name, apiDef)
+		err := t.createTypeFromPropProperty(name, apiDef)
+		if err != nil {
+			return err
+		}
+		err = t.createTypeFromPropItems(name, apiDef)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -685,37 +686,37 @@ func (t *Type) parseOptionalProperty(name string) {
 }
 
 // create type from item with inline type definition
-func (t *Type) createTypeFromPropItems(name string, apiDef *APIDefinition) {
+func (t *Type) createTypeFromPropItems(name string, apiDef *APIDefinition) error {
 	p := t.Properties[name]
 
 	// propMap is this properties as map
 	propMap, ok := p.(map[interface{}]interface{})
 	if !ok {
-		return
+		return nil
 	}
 
 	// only process the array
 	tip, ok := propMap["type"]
 	if !ok || tip != "array" {
-		return
+		return nil
 	}
 
 	// only process if it has 'items' field
 	itemsIf, ok := propMap["items"]
 	if !ok {
-		return
+		return nil
 	}
 
 	// check it's validity
 	items, ok := itemsIf.(map[interface{}]interface{})
 	if !ok {
-		return
+		return nil
 	}
 
 	// to define new type, it needs to have 'properties' field
 	props, ok := items["properties"].(map[interface{}]interface{})
 	if !ok { // doesn't define new type, no problem, we can simply return
-		return
+		return nil
 	}
 	newName := t.Name + name + "Item"
 	created := apiDef.createType(newName, tip, props)
@@ -728,29 +729,33 @@ func (t *Type) createTypeFromPropItems(name string, apiDef *APIDefinition) {
 
 	if created {
 		createdType := apiDef.Types[newName]
-		createdType.postProcess(newName, apiDef)
+		err := createdType.postProcess(newName, apiDef)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // create type from property's property
-func (t *Type) createTypeFromPropProperty(name string, apiDef *APIDefinition) {
+func (t *Type) createTypeFromPropProperty(name string, apiDef *APIDefinition) error {
 	p := t.Properties[name]
 	// only process map[interface]interface{}
 	propMap, ok := p.(map[interface{}]interface{})
 	if !ok {
-		return
+		return nil
 	}
 
 	// only process if it has 'properties' field
 	propsIf, ok := propMap["properties"]
 	if !ok {
-		return
+		return nil
 	}
 
 	// check validity of the properties
 	props, ok := propsIf.(map[interface{}]interface{})
 	if !ok {
-		panic("inline properties expect properties in type:map[string]interface{}")
+		return fmt.Errorf("inline properties expect properties in type:map[string]interface{}")
 	}
 
 	newName := t.Name + name
@@ -766,9 +771,12 @@ func (t *Type) createTypeFromPropProperty(name string, apiDef *APIDefinition) {
 	// post process the created type
 	if created {
 		createdType := apiDef.Types[newName]
-		createdType.postProcess(newName, apiDef)
+		err := createdType.postProcess(newName, apiDef)
+		if err != nil {
+			return err
+		}
 	}
-
+	return nil
 }
 func (t *Type) postProcessJSONSchema() error {
 	var jt JSONSchema

@@ -38,7 +38,7 @@ func NewJSONSchema(t Type, name string) JSONSchema {
 	return NewJSONSchemaFromProps(&t, t.Properties, typ, name)
 }
 
-// NewJSONSchemaFromProps creates json schmema
+// NewJSONSchemaFromProps creates json schema
 // from a map of properties
 func NewJSONSchemaFromProps(t *Type, properties map[string]interface{}, typ, name string) JSONSchema {
 	var required []string

@@ -19,7 +19,7 @@ func TestResourceTypeInheritance(t *testing.T) {
 			So(r.Description, ShouldEqual, "The collection of Users")
 
 			So(r.Get, ShouldNotBeNil)
-			So(r.Get.Description, ShouldEqual, "Get all Users, optionally filtered")
+			So(r.Get.Description, ShouldEqual, "requests to get require authentication")
 			So(r.Get.DisplayName, ShouldEqual, "ListAllUsers")
 			So(r.Get.Responses["200"].Bodies.Type, ShouldEqual, "Users")
 
@@ -47,7 +47,7 @@ func TestResourceTypeInheritance(t *testing.T) {
 
 			props := r.Post.Bodies.ApplicationJSON.Properties
 			So(ToProperty("name", props["name"]).Type, ShouldEqual, "string")
-			So(ToProperty("age", props["age"]).Type, ShouldEqual, "int")
+			So(ToProperty("age", props["age"]).Type, ShouldEqual, "number")
 			So(r.Post.Headers["X-Chargeback"].Required, ShouldBeTrue)
 
 			mem := r.Nested["/{id}"]

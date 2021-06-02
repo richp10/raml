@@ -5,7 +5,6 @@ go 1.16
 require (
 	bitbucket.org/pkg/inflect v0.0.0-20130829110746-8961c3750a47
 	github.com/chuckpreslar/inflect v0.0.0-20150228233301-423e3ac59c61
-	github.com/gigforks/yaml v0.0.0-20160510064715-3396035bfe07
 	github.com/jinzhu/inflection v1.0.0
 	github.com/kr/text v0.2.0 // indirect
 	github.com/sirupsen/logrus v1.8.1

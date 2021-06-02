@@ -102,7 +102,7 @@ func TestRemoteParsing(t *testing.T) {
 	asserter := assert.New(t)
 
 	def := new(APIDefinition)
-	err := ParseFile("https://raw.githubusercontent.com/raml-org/raml-tutorial-200/master/jukebox-api.raml", def)
+	err := ParseFile("https://raw.githubusercontent.com/demeyerthom/raml-examples/demeyerthom-patch/others/tutorial-jukebox-api/jukebox-api.raml", def)
 	asserter.NoError(err)
 	asserter.Equal("Jukebox API", def.Title)
 	asserter.Len(def.Types, 3)

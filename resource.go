@@ -2,6 +2,7 @@ package raml
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"log"
 	"path"
 	"strings"
@@ -26,7 +27,7 @@ type Resource struct {
 
 	// TODO : annotationName
 
-	// In a RESTful API, methods are operations that are performed on a
+	// In a REST-ful API, methods are operations that are performed on a
 	// resource. A method MUST be one of the HTTP methods defined in the
 	// HTTP version 1.1 specification [RFC2616] and its extension,
 	// RFC5789 [RFC5789].
@@ -53,7 +54,7 @@ type Resource struct {
 
 	// A nested resource, which is identified as any property
 	// whose name begins with a slash ("/"), and is therefore treated as a relative URI.
-	Nested map[string]*Resource `yaml:",regexp:/.*"`
+	Nested map[string]*Resource `yaml:"-"`
 
 	// A resource defined as a child property of another resource is called a
 	// nested resource, and its property's key is its URI relative to its
@@ -65,8 +66,36 @@ type Resource struct {
 	Methods []*Method `yaml:"-"`
 }
 
+func (r *Resource) UnmarshalYAML(node *yaml.Node) error {
+	type clone Resource
+
+	c := clone{}
+	if err := node.Decode(&c); err != nil {
+		return err
+	}
+	*r = Resource(c)
+
+	var nested = map[string]*Resource{}
+	for i, childNode := range node.Content {
+		if resourceRegexp.MatchString(childNode.Value) {
+			cc := clone{}
+			//We fetch the next node, which contains the actual data for the resource
+			err := node.Content[i+1].Decode(&cc)
+			if err != nil {
+				return err
+			}
+			cc.Parent = r
+			nr := Resource(cc)
+			nested[childNode.Value] = &nr
+		}
+	}
+
+	r.Nested = nested
+
+	return nil
+}
+
 // postProcess doing post processing of a resource after being constructed by the parser.
-// some of the workds:
 // - assign all properties that can't be obtained from RAML document
 // - inherit from resource type
 // - inherit from traits
@@ -75,17 +104,20 @@ func (r *Resource) postProcess(uri string, parent *Resource, resourceTypes map[s
 	r.URI = strings.TrimSpace(uri)
 	r.Parent = parent
 
-	r.setMethods(traitsMap, apiDef)
+	err := r.setMethods(traitsMap, apiDef)
+	if err != nil {
+		return err
+	}
 
 	// inherit from resource types
-	if err := r.inheritResourceType(resourceTypes, apiDef); err != nil {
+	if err = r.inheritResourceType(resourceTypes, apiDef); err != nil {
 		return err
 	}
 
 	// process nested/child resources
 	for k := range r.Nested {
 		n := r.Nested[k]
-		if err := n.postProcess(k, r, resourceTypes, traitsMap, apiDef); err != nil {
+		if err = n.postProcess(k, r, resourceTypes, traitsMap, apiDef); err != nil {
 			return err
 		}
 		r.Nested[k] = n
@@ -169,28 +201,50 @@ func (r *Resource) getResourceType(resourceTypes map[string]ResourceType) (*Reso
 
 // set methods set all methods name
 // and add it to Methods slice
-func (r *Resource) setMethods(traitsMap map[string]Trait, apiDef *APIDefinition) {
+func (r *Resource) setMethods(traitsMap map[string]Trait, apiDef *APIDefinition) (err error) {
 	if r.Get != nil {
-		r.Get.postProcess(r, "GET", traitsMap, apiDef)
+		err = r.Get.postProcess(r, "GET", traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 	}
 	if r.Post != nil {
-		r.Post.postProcess(r, "POST", traitsMap, apiDef)
+		err = r.Post.postProcess(r, "POST", traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 	}
 	if r.Put != nil {
-		r.Put.postProcess(r, "PUT", traitsMap, apiDef)
+		err = r.Put.postProcess(r, "PUT", traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 	}
 	if r.Patch != nil {
-		r.Patch.postProcess(r, "PATCH", traitsMap, apiDef)
+		err = r.Patch.postProcess(r, "PATCH", traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 	}
 	if r.Head != nil {
-		r.Head.postProcess(r, "HEAD", traitsMap, apiDef)
+		err = r.Head.postProcess(r, "HEAD", traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 	}
 	if r.Delete != nil {
-		r.Delete.postProcess(r, "DELETE", traitsMap, apiDef)
+		err = r.Delete.postProcess(r, "DELETE", traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 	}
 	if r.Options != nil {
-		r.Options.postProcess(r, "OPTIONS", traitsMap, apiDef)
+		err = r.Options.postProcess(r, "OPTIONS", traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // MethodByName return resource's method by it's name
@@ -272,7 +326,7 @@ func substituteParams(toReplace, words string, dicts map[string]interface{}) str
 // return false if not exists
 func getParamValue(param string, dicts map[string]interface{}) (string, bool) {
 	// split between inflectors and real param
-	// real param and each inflector is seperated by `|`
+	// real param and each inflector is separated by `|`
 	cleanParam, inflectors := func() (string, string) {
 		arr := strings.SplitN(param, "|", 2)
 		if len(arr) != 2 {
@@ -334,8 +388,8 @@ func (r *Resource) resourcePathName() string {
 
 	if uri != "" && !strings.HasSuffix(uri, "}") {
 		// check if it is non-URI params, which ended by "}"
-		elems := strings.Split(uri, "/")
-		return elems[len(elems)-1]
+		elements := strings.Split(uri, "/")
+		return elements[len(elements)-1]
 	}
 	if r.Parent == nil {
 		return ""

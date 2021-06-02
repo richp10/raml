@@ -65,7 +65,7 @@ type ResourceType struct {
 	// Individual methods can override this declaration.
 	Is []DefinitionChoice `yaml:"is"`
 
-	// In a RESTful API, methods are operations that are performed on a
+	// In a REST-ful API, methods are operations that are performed on a
 	// resource. A method MUST be one of the HTTP methods defined in the
 	// HTTP version 1.1 specification [RFC2616] and its extension,
 	// RFC5789 [RFC5789].
@@ -107,54 +107,80 @@ type ResourceType struct {
 // - assign all properties that can't be obtained from RAML document
 // - inherit from other resource type
 // - apply traits
-func (rt *ResourceType) postProcess(name string, traitsMap map[string]Trait, apiDef *APIDefinition) {
+func (rt *ResourceType) postProcess(name string, traitsMap map[string]Trait, apiDef *APIDefinition) error {
 	rt.Name = name
-	rt.setMethods(traitsMap, apiDef)
+	err := rt.setMethods(traitsMap, apiDef)
+	if err != nil {
+		return err
+	}
 	rt.setOptionalMethods()
 
 	// TODO : inherit from other resource type
 
 	// TODO : apply traits
+	return nil
 }
 
 // set methods set all methods name
 // and add it to methods slice
-func (rt *ResourceType) setMethods(traitsMap map[string]Trait, apiDef *APIDefinition) {
+func (rt *ResourceType) setMethods(traitsMap map[string]Trait, apiDef *APIDefinition) (err error) {
 	if rt.Get != nil {
 		rt.Get.Name = "GET"
-		rt.Get.inheritFromTraits(nil, append(rt.Is, rt.Get.Is...), traitsMap, apiDef)
+		err = rt.Get.inheritFromTraits(nil, append(rt.Is, rt.Get.Is...), traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 		rt.methods = append(rt.methods, rt.Get)
 	}
 	if rt.Post != nil {
 		rt.Post.Name = "POST"
-		rt.Post.inheritFromTraits(nil, append(rt.Is, rt.Post.Is...), traitsMap, apiDef)
+		err = rt.Post.inheritFromTraits(nil, append(rt.Is, rt.Post.Is...), traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 		rt.methods = append(rt.methods, rt.Post)
 	}
 	if rt.Put != nil {
 		rt.Put.Name = "PUT"
-		rt.Put.inheritFromTraits(nil, append(rt.Is, rt.Put.Is...), traitsMap, apiDef)
+		err = rt.Put.inheritFromTraits(nil, append(rt.Is, rt.Put.Is...), traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 		rt.methods = append(rt.methods, rt.Put)
 	}
 	if rt.Patch != nil {
 		rt.Patch.Name = "PATCH"
-		rt.Patch.inheritFromTraits(nil, append(rt.Is, rt.Patch.Is...), traitsMap, apiDef)
+		err = rt.Patch.inheritFromTraits(nil, append(rt.Is, rt.Patch.Is...), traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 		rt.methods = append(rt.methods, rt.Patch)
 	}
 	if rt.Head != nil {
 		rt.Head.Name = "HEAD"
-		rt.Head.inheritFromTraits(nil, append(rt.Is, rt.Head.Is...), traitsMap, apiDef)
+		err = rt.Head.inheritFromTraits(nil, append(rt.Is, rt.Head.Is...), traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 		rt.methods = append(rt.methods, rt.Head)
 	}
 	if rt.Delete != nil {
 		rt.Delete.Name = "DELETE"
-		rt.Delete.inheritFromTraits(nil, append(rt.Is, rt.Delete.Is...), traitsMap, apiDef)
+		err = rt.Delete.inheritFromTraits(nil, append(rt.Is, rt.Delete.Is...), traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 		rt.methods = append(rt.methods, rt.Delete)
 	}
 	if rt.Options != nil {
 		rt.Options.Name = "OPTIONS"
-		rt.Options.inheritFromTraits(nil, append(rt.Is, rt.Options.Is...), traitsMap, apiDef)
+		err = rt.Options.inheritFromTraits(nil, append(rt.Is, rt.Options.Is...), traitsMap, apiDef)
+		if err != nil {
+			return err
+		}
 		rt.methods = append(rt.methods, rt.Options)
 	}
+	return err
 }
 
 // setOptionalMethods set name of all optional methods
