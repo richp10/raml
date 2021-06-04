@@ -37,7 +37,7 @@ resourceTypes:
           application/json:
             properties:
               name: string
-              age: int
+              age: number
         headers:
           X-Chargeback:
             required: true
@@ -92,7 +92,7 @@ traits:
   type: collection
   #is: [ secured ]
   get:
-    is: [ paged : { maxPages: 10}, rateLimited ] # this method is also secured
+    is: [ paged : { maxPages: 10}, secured ] # this method is also secured
 
 /queues:
   type: corpResource

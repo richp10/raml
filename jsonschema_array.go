@@ -12,7 +12,9 @@ func newArraySchema(t *Type, typ, name string) JSONSchema {
 		Type:   "array",
 		Items:  newArrayItem(getArrayItemsType(t, typ)),
 		T: &Type{
-			Type: "array",
+			typeProps: typeProps{
+				Type: "array",
+			},
 		},
 	}
 	if t == nil {
@@ -25,8 +27,8 @@ func newArraySchema(t *Type, typ, name string) JSONSchema {
 }
 
 func isTypeArray(typ string) bool {
-	t := Type{Type: typ}
-	return typ == "array" || (t.IsArray() && !t.IsBidimensiArray())
+	t := Type{typeProps: typeProps{Type: typ}}
+	return typ == "array" || (t.IsArray() && !t.IsBidimensionalArray())
 }
 
 type arrayItem struct {

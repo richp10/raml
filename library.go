@@ -31,7 +31,7 @@ type Library struct {
 // - setting some additional values not exist in the .raml
 // - allocate map fields
 func (l *Library) PostProcess(workDir, fileName string) error {
-	// libraries
+	//TODO: what do we do when two libraries have a circular dependency?
 	if !isURL(fileName) {
 		workDir = filepath.Join(workDir, filepath.Dir(fileName))
 	}
@@ -54,7 +54,10 @@ func (l *Library) PostProcess(workDir, fileName string) error {
 
 	// resource types
 	for name, rt := range l.ResourceTypes {
-		rt.postProcess(name, l.Traits, nil)
+		err := rt.postProcess(name, l.Traits, nil)
+		if err != nil {
+			return err
+		}
 		l.ResourceTypes[name] = rt
 	}
 	return nil

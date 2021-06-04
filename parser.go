@@ -34,24 +34,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gigforks/yaml"
+	"gopkg.in/yaml.v3"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"unicode/utf8"
-)
-
-var (
-	// directory of raml file
-	// we need to save it as global variable because
-	// library inside library file path is not relative to
-	// the library that include it.
-	// But relative to RAML file
-	ramlFileDir string
 )
 
 var (
@@ -61,7 +51,7 @@ var (
 // ParseFile parses an RAML file.
 // Returns a raml.APIDefinition value or an error if
 // something went wrong.
-func ParseFile(filePath string, root Root) error {
+func ParseFile(filePath string, root Processor) error {
 	workDir, fileName := filepath.Split(filePath)
 	_, err := ParseReadFile(workDir, fileName, root)
 	return err
@@ -69,11 +59,7 @@ func ParseFile(filePath string, root Root) error {
 
 // ParseReadFile parse an .raml file.
 // It returns API definition and the concatenated .raml file.
-func ParseReadFile(workDir, fileName string, root Root) ([]byte, error) {
-	if strings.HasSuffix(fmt.Sprint(reflect.TypeOf(root)), "APIDefinition") { // when we parse for APIDefinition, we reset ramlFileDir
-		ramlFileDir = workDir
-	}
-
+func ParseReadFile(workDir, fileName string, root Processor) ([]byte, error) {
 	// Read original file contents into a byte array
 	mainFileBytes, err := readFileOrURL(workDir, fileName)
 
@@ -101,14 +87,11 @@ func ParseReadFile(workDir, fileName string, root Root) ([]byte, error) {
 
 	// Pre-process the original file, following !include directive
 	preprocessedContentsBytes, err := preProcess(mainFileBuffer, workDir)
-
 	if err != nil {
 		return []byte{}, fmt.Errorf("error preprocessing RAML file (Error: %s)", err.Error())
 	}
 
 	// Unmarshal into an APIDefinition value
-
-	// Go!
 	err = yaml.Unmarshal(preprocessedContentsBytes, root)
 
 	// Any errors?
@@ -128,7 +111,7 @@ func ParseReadFile(workDir, fileName string, root Root) ([]byte, error) {
 		return []byte{}, ramlError
 	}
 
-	if err := root.PostProcess(workDir, fileName); err != nil {
+	if err = root.PostProcess(workDir, fileName); err != nil {
 		return preprocessedContentsBytes, err
 	}
 
@@ -139,8 +122,8 @@ func ParseReadFile(workDir, fileName string, root Root) ([]byte, error) {
 // read raml file/url
 func readFileOrURL(workingDir, fileName string) ([]byte, error) {
 	// read from URL if it is an URL, otherwise read from local file.
-	if url := strings.Join([]string{workingDir, fileName}, ""); isURL(url) {
-		return readURL(url)
+	if u := strings.Join([]string{workingDir, fileName}, ""); isURL(u) {
+		return readURL(u)
 	}
 	return readFileContents(workingDir, fileName)
 }
@@ -237,7 +220,7 @@ func preProcess(originalContents io.Reader, workingDirectory string) ([]byte, er
 			// In case of .raml or .yaml, remove the comments
 			// In case of other files, Base64 them first.
 
-			// TODO: Better, step by step checks .. though prolly it'll panic
+			// TODO: Better, step by step checks .. though probably it'll panic
 			// Write text files in the same indentation as the first line
 			internalScanner := bufio.NewScanner(bytes.NewBuffer(includedContents))
 

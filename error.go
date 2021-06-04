@@ -31,9 +31,8 @@ package raml
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"strings"
-
-	"github.com/gigforks/yaml"
 )
 
 // An Error is returned by the ParseFile function when RAML or YAML problems
@@ -49,8 +48,7 @@ func (e *Error) Error() string {
 
 // Populate the RAML error value with converted YAML error strings (with
 // additional context)
-func populateRAMLError(ramlError *Error,
-	yamlErrors *yaml.TypeError) {
+func populateRAMLError(ramlError *Error, yamlErrors *yaml.TypeError) {
 
 	// Go over the errors
 	for _, currErr := range yamlErrors.Errors {
@@ -112,8 +110,7 @@ func convertYAMLError(yamlError string) string {
 
 			target, _ = ramlTypes[target]
 
-			return fmt.Sprintf("line %s: %s cannot be of "+
-				"type %s, must be %s", line, targetName, source, target)
+			return fmt.Sprintf("line %s: %s cannot be of type %s, must be %s", line, targetName, source, target)
 
 		}
 	}
@@ -150,7 +147,7 @@ var ramlTypeNames = map[string]string{
 	"raml.Trait":                "trait",
 	"raml.ResourceTypeMethod":   "resource type method",
 	"raml.ResourceType":         "resource type",
-	"raml.SecuritySchemeMethod": "security scheme method",
+	"raml.DescribedBy":          "security scheme method",
 	"raml.SecurityScheme":       "security scheme",
 	"raml.Method":               "method",
 	"raml.Resource":             "resource",
@@ -172,7 +169,7 @@ var ramlTypes = map[string]string{
 	"raml.Trait":                "mapping",
 	"raml.ResourceTypeMethod":   "mapping",
 	"raml.ResourceType":         "mapping",
-	"raml.SecuritySchemeMethod": "mapping",
+	"raml.DescribedBy":          "mapping",
 	"raml.SecurityScheme":       "mapping",
 	"raml.Method":               "mapping",
 	"raml.Resource":             "mapping",
