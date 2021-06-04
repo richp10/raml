@@ -35,6 +35,7 @@ package raml
 import (
 	"encoding/json"
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"log"
 	"strings"
 )
@@ -96,24 +97,29 @@ type DefinitionChoice struct {
 }
 
 // UnmarshalYAML unmarshals a node which MIGHT be a simple string or a map[string]DefinitionParameters
-// TODO: rewrite to new marshaller
-func (dc *DefinitionChoice) UnmarshalYAML(unmarshaler func(interface{}) error) error {
-
-	simpleDefinition := new(string)
-	parameterizedDefinition := make(map[string]DefinitionParameters)
-
-	var err error
-
-	// Unmarshal into a string
-	if err = unmarshaler(simpleDefinition); err == nil {
+func (dc *DefinitionChoice) UnmarshalYAML(node *yaml.Node) (err error) {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		simpleDefinition := new(string)
+		err = node.Decode(simpleDefinition)
+		if err != nil {
+			break
+		}
 		dc.Name = *simpleDefinition
 		dc.Parameters = nil
-	} else if err = unmarshaler(parameterizedDefinition); err == nil {
-		// Didn't work? Now unmarshal into a map
+	case yaml.MappingNode:
+		parameterizedDefinition := make(map[string]DefinitionParameters)
+		err = node.Decode(parameterizedDefinition)
+		if err != nil {
+			break
+		}
+		//TODO: this does not look like it should work....
 		for choice, params := range parameterizedDefinition {
 			dc.Name = choice
 			dc.Parameters = params
 		}
+	default:
+		err = fmt.Errorf("unmarshalable node kind %s", node.LongTag())
 	}
 
 	return err
