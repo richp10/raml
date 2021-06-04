@@ -1,14 +1,25 @@
 package raml
 
-// SecuritySchemeMethod is a description of the following security-related
+// DescribedBy is a description of the following security-related
 // request components determined by the scheme:
 //   the headers, query parameters, or responses
-type SecuritySchemeMethod struct {
-	Headers         map[HTTPHeader]Header     `yaml:"headers"`
+type DescribedBy struct {
+	describedByProps `yaml:",inline"`
+	Annotations      Annotations `yaml:",inline"`
+}
+
+type describedByProps struct {
+	// Optional array of Headers, documenting the possible headers that could be accepted.
+	Headers map[HTTPHeader]Header `yaml:"headers"`
+
+	// Query parameters, used by the schema to authorize the request. Mutually exclusive with queryString.
 	QueryParameters map[string]NamedParameter `yaml:"queryParameters"`
-	QueryString     map[string]NamedParameter `yaml:"queryString"`
-	Responses       map[HTTPCode]Response     `yaml:"responses"`
-	// TODO annotation
+
+	// The query string used by the schema to authorize the request. Mutually exclusive with queryParameters.
+	QueryString map[string]NamedParameter `yaml:"queryString"`
+
+	// An optional array of responses, representing the possible responses that could be sent.
+	Responses map[HTTPCode]Response `yaml:"responses"`
 }
 
 // SecurityScheme defines mechanisms to secure data access, identify
@@ -40,7 +51,7 @@ type SecurityScheme struct {
 	// As a best practice, even for standard security schemes,
 	// API designers SHOULD describe these properties of security schemes.
 	// Including the security scheme description completes the API documentation.
-	DescribedBy SecuritySchemeMethod `yaml:"describedBy"`
+	DescribedBy DescribedBy `yaml:"describedBy"`
 
 	// The settings attribute MAY be used to provide security scheme-specific information.
 	Settings map[string]Any `yaml:"settings"`

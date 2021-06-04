@@ -10,7 +10,11 @@ import (
 
 // A Resource is the conceptual mapping to an entity or set of entities.
 type Resource struct {
+	resourceProps `yaml:",inline"`
+	Annotations   Annotations `yaml:",inline"`
+}
 
+type resourceProps struct {
 	// Resources are identified by their relative URI, which MUST begin with
 	// a slash (/).
 	URI string
@@ -25,12 +29,11 @@ type Resource struct {
 	// Its value is a string and MAY be formatted using markdown.
 	Description string `yaml:"description"`
 
-	// TODO : annotationName
-
 	// In a REST-ful API, methods are operations that are performed on a
 	// resource. A method MUST be one of the HTTP methods defined in the
 	// HTTP version 1.1 specification [RFC2616] and its extension,
 	// RFC5789 [RFC5789].
+	//TODO: merge all these into a []*Method object to reduce complexity with YamlMarshalling
 	Get     *Method `yaml:"get"`
 	Patch   *Method `yaml:"patch"`
 	Put     *Method `yaml:"put"`
@@ -70,11 +73,13 @@ func (r *Resource) UnmarshalYAML(node *yaml.Node) error {
 	type clone Resource
 
 	c := clone{}
-	if err := node.Decode(&c); err != nil {
+	if err := node.Decode(&c.resourceProps); err != nil {
+		return err
+	}
+	if err := node.Decode(&c.Annotations); err != nil {
 		return err
 	}
 	*r = Resource(c)
-
 	var nested = map[string]*Resource{}
 	for i, childNode := range node.Content {
 		if resourceRegexp.MatchString(childNode.Value) {

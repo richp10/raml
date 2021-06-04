@@ -30,72 +30,28 @@ package raml
 // This file contains tests.
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
-// TODO: Way, way more serious tests.
-//
-// Inspirations:
-// 	 	https://github.com/raml-org/raml-js-parser/tree/master/test
-//		https://github.com/raml-org/raml-java-parser/tree/master/src/test
-// 		https://github.com/an2deg/pyraml-parser/tree/master/tests
-//		https://github.com/cybertk/ramlev/tree/master/test/fixtures
-
-func TestFailedParsing(t *testing.T) {
-
-	fileNames := []string{"./samples/bad_raml.raml"}
-
-	for _, fileName := range fileNames {
-
-		fmt.Printf("Attempting to parse RAML file: %s\n", fileName)
-
-		apiDef := new(APIDefinition)
-		err := ParseFile(fileName, apiDef)
-
-		if err == nil {
-			t.Fatalf("Failed detecting bad RAML file %s", fileName)
-		} else {
-			fmt.Printf("Detected bad RAML file %s:\n%s", fileName, err.Error())
-		}
-	}
-}
-
-func TestParsing(t *testing.T) {
-
-	fileNames := []string{
-		"./samples/congo/api.raml",
-	}
-
-	for _, fileName := range fileNames {
-
-		fmt.Printf("Attempting to parse RAML file: %s\n", fileName)
-
-		apiDefinition := new(APIDefinition)
-		err := ParseFile(fileName, apiDefinition)
-
-		if err != nil {
-			t.Fatalf("Failed parsing file %s:\n  %s", fileName, err.Error())
-		} else {
-			fmt.Printf("Successfully parsed file %s!\n", fileName)
-		}
-	}
-}
-
-func TestMethodStringer(t *testing.T) {
+func TestParsingSimple(t *testing.T) {
 	asserter := assert.New(t)
-	def := new(APIDefinition)
-	err := ParseFile("./samples/simple_example.raml", def)
+
+	apiDefinition := new(APIDefinition)
+	err := ParseFile("./testdata/basic.raml", apiDefinition)
 	asserter.NoError(err)
+	asserter.Equal("./testdata/basic.raml", apiDefinition.Filename)
+	asserter.Equal("GitHub API", apiDefinition.Title)
+	asserter.Equal("v3", apiDefinition.Version)
+	asserter.Equal(MediaType{"application/json"}, apiDefinition.MediaType)
 
-	r := def.Resources["/resources"]
-	asserter.Equal("GET", r.Get.Name)
+	asserter.Len(apiDefinition.Protocols, 1)
+	asserter.Equal("HTTP", apiDefinition.Protocols[0])
 
-	n := r.Nested["/{resourceId}"]
-	asserter.Equal("GET", n.Get.Name)
-	asserter.Equal("PUT", n.Put.Name)
-	asserter.Equal("DELETE", n.Delete.Name)
+	asserter.Len(apiDefinition.Documentation, 2)
+	asserter.Equal("Home", apiDefinition.Documentation[0].Title)
+
+	asserter.Equal("https://api.github.com", apiDefinition.BaseURI)
 }
 
 func TestRemoteParsing(t *testing.T) {
@@ -107,4 +63,38 @@ func TestRemoteParsing(t *testing.T) {
 	asserter.Equal("Jukebox API", def.Title)
 	asserter.Len(def.Types, 3)
 	asserter.Len(def.Types["song"].Properties, 3)
+}
+
+func TestParsingWithUriTemplate(t *testing.T) {
+	asserter := assert.New(t)
+
+	apiDefinition := new(APIDefinition)
+	err := ParseFile("./testdata/uri_template.raml", apiDefinition)
+	asserter.NoError(err)
+	asserter.Equal("https://{subdomain}.github.com", apiDefinition.BaseURI)
+	asserter.Len(apiDefinition.BaseURIParameters, 1)
+	asserter.Equal("The subdomain", apiDefinition.BaseURIParameters["subdomain"].Description)
+}
+
+func TestParsingWithMediaTypeMap(t *testing.T) {
+	asserter := assert.New(t)
+
+	apiDefinition := new(APIDefinition)
+	err := ParseFile("./testdata/media_types_map.raml", apiDefinition)
+	asserter.NoError(err)
+	asserter.Equal(MediaType{"application/json", "application/xml"}, apiDefinition.MediaType)
+}
+
+func TestParsingAnnotations(t *testing.T) {
+	asserter := assert.New(t)
+
+	apiDefinition := new(APIDefinition)
+	err := ParseFile("./testdata/annotated.raml", apiDefinition)
+	asserter.NoError(err)
+
+	asserter.Len(apiDefinition.Annotations.AnnotationNames, 1)
+	asserter.Len(apiDefinition.Types["Address"].Annotations.AnnotationNames, 1)
+	asserter.Len(apiDefinition.SecuritySchemes["oauth_1_0"].DescribedBy.Annotations.AnnotationNames, 1)
+	asserter.Len(apiDefinition.Resources["/users"].Annotations.AnnotationNames, 3)
+	asserter.Len(apiDefinition.Resources["/users"].Get.Annotations.AnnotationNames, 2)
 }

@@ -39,11 +39,8 @@ import (
 	"strings"
 )
 
-const (
-	arrayType = "array"
-)
-
 var (
+	arrayType   = "array"
 	scalarTypes = map[string]bool{
 		"string":        true,
 		"number":        true,
@@ -64,13 +61,9 @@ var (
 		"long":   true,
 		"float":  true,
 		"double": true,
-
 		"object": true,
 	}
 )
-
-// TODO: We don't support !include of non-text files. RAML supports including
-//       of many file types.
 
 // Any type, for our convenience
 type Any interface{}
@@ -83,12 +76,6 @@ type HTTPHeader string // e.g. Content-Length
 
 // Header used in Methods and other types
 type Header NamedParameter
-
-// Documentation is the additional overall documentation for the API.
-type Documentation struct {
-	Title   string `yaml:"title"`
-	Content string `yaml:"content"`
-}
 
 // DefinitionParameters defines a map of parameter name at it's value.
 // A ResourceType/Trait/SecurityScheme choice contains the name of a
@@ -108,8 +95,8 @@ type DefinitionChoice struct {
 	Parameters DefinitionParameters
 }
 
-// UnmarshalYAML unmarshals a node which MIGHT be a simple string or a
-// map[string]DefinitionParameters
+// UnmarshalYAML unmarshals a node which MIGHT be a simple string or a map[string]DefinitionParameters
+// TODO: rewrite to new marshaller
 func (dc *DefinitionChoice) UnmarshalYAML(unmarshaler func(interface{}) error) error {
 
 	simpleDefinition := new(string)
@@ -129,8 +116,6 @@ func (dc *DefinitionChoice) UnmarshalYAML(unmarshaler func(interface{}) error) e
 		}
 	}
 
-	// Still didn't work? Panic
-
 	return err
 }
 
@@ -140,188 +125,23 @@ type HasProperties interface {
 	GetProperty(string) Property
 }
 
-// Property defines a Type property
-type Property struct {
-	Name        string
-	Type        interface{} `yaml:"type"`
-	Required    bool        `yaml:"required"`
-	Enum        interface{} `yaml:"enum"`
-	Description string      `yaml:"description"`
-
-	// string
-	Pattern   *string
-	MinLength *int
-	MaxLength *int
-
-	// number
-	Minimum    *float64
-	Maximum    *float64
-	MultipleOf *float64
-	Format     *string
-
-	// array
-	MinItems    *int
-	MaxItems    *int
-	UniqueItems bool
-	Items       Items
-
-	_type *Type // pointer to Type of this Property
-}
-
-// ToProperty creates a property from an interface
-// we use `interface{}` as property type to support syntactic sugar & shortcut
-// using it directly is DEPRECATED
-func ToProperty(name string, p interface{}) Property {
-	return toProperty(name, p)
-}
-
-func toProperty(name string, p interface{}) Property {
-	// convert number(int/float) to float
-	toFloat64 := func(number interface{}) float64 {
-		switch v := number.(type) {
-		case int:
-			return float64(v)
-		case float64:
-			return v
-		default:
-			return v.(float64)
-		}
-	}
-	// convert from map of interface to property
-	mapToProperty := func(val map[interface{}]interface{}) Property {
-		var p Property
-		p.Required = true
-		for k, v := range val {
-			switch k {
-			case "type":
-				if p.Format == nil { // if not nil, we already override it
-					p.Type = v.(string)
-				}
-			case "format":
-				p.Format = new(string)
-				*p.Format = v.(string)
-				p.Type = *p.Format
-			case "required":
-				p.Required = v.(bool)
-			case "enum":
-				p.Enum = v
-			case "description":
-				p.Description = v.(string)
-			case "minLength":
-				p.MinLength = new(int)
-				*p.MinLength = v.(int)
-			case "maxLength":
-				p.MaxLength = new(int)
-				*p.MaxLength = v.(int)
-			case "pattern":
-				p.Pattern = new(string)
-				*p.Pattern = v.(string)
-			case "minimum":
-				p.Minimum = new(float64)
-				*p.Minimum = toFloat64(v)
-			case "maximum":
-				p.Maximum = new(float64)
-				*p.Maximum = toFloat64(v)
-			case "multipleOf":
-				p.MultipleOf = new(float64)
-				*p.MultipleOf = toFloat64(v)
-			case "minItems":
-				p.MinItems = new(int)
-				*p.MinItems = v.(int)
-			case "maxItems":
-				p.MaxItems = new(int)
-				*p.MaxItems = v.(int)
-			case "uniqueItems":
-				p.UniqueItems = v.(bool)
-			case "items":
-				p.Items = newItems(v)
-			case "properties":
-				log.Fatalf("Properties field of '%v' should already be deleted. Seems there are unsupported inline type", name)
-			}
-		}
-		return p
-	}
-
-	prop := Property{Required: true}
-	switch p.(type) {
-	case string:
-		prop.Type = p.(string)
-	case map[interface{}]interface{}:
-		prop = mapToProperty(p.(map[interface{}]interface{}))
-	case Property:
-		prop = p.(Property)
-	}
-
-	if prop.Type == "" { // if has no type, we set it as string
-		prop.Type = "string"
-	}
-
-	prop.Name = name
-
-	// if has "?" suffix, remove the "?" and set required=false
-	if strings.HasSuffix(prop.Name, "?") {
-		prop.Required = false
-		prop.Name = strings.TrimSuffix(prop.Name, "?")
-	}
-	return prop
-
-}
-
-// TypeString returns string representation
-// of the property's type
-func (p Property) TypeString() string {
-	switch p.Type.(type) {
-	case string:
-		return p.Type.(string)
-	case Type:
-		if p._type == nil {
-			panic(fmt.Errorf("property '%v' has no parent type", p.Name))
-		}
-		return p._type.Name + p.Name
-	default:
-		return "string"
-	}
-}
-
-// IsEnum returns true if a property is an enum
-func (p Property) IsEnum() bool {
-	return p.Enum != nil
-}
-
-// IsBidimensiArray returns true if
-// this property is a bidimensional array
-func (p Property) IsBidimensiArray() bool {
-	return strings.HasSuffix(p.TypeString(), "[][]")
-}
-
-// IsArray returns true if it is an array
-func (p Property) IsArray() bool {
-	return p.Type == arrayType || strings.HasSuffix(p.TypeString(), "[]")
-}
-
-// IsUnion returns true if a property is a union
-func (p Property) IsUnion() bool {
-	return strings.Index(p.TypeString(), "|") > 0
-}
-
-// BidimensiArrayType returns type of the bidimensional array
-func (p Property) BidimensiArrayType() string {
-	return strings.TrimSuffix(p.TypeString(), "[][]")
-}
-
-// ArrayType returns the type of the array
-func (p Property) ArrayType() string {
-	if p.Type == arrayType {
-		return p.Items.Type
-	}
-	return strings.TrimSuffix(p.TypeString(), "[]")
-}
-
-// Type defines an RAML data type
+// Type defines shared fields for all RAML data types
 type Type struct {
-	Name string
+	typeProps   `yaml:",inline"`
+	Annotations Annotations    `yaml:",inline"`
+	_apiDef     *APIDefinition `yaml:"-"`
+}
 
-	// A default value for a type
+type typeProps struct {
+	Name string `yaml:"-"`
+
+	// A default value for a type. When an API request is completely missing the instance of a type, for example
+	// when a query parameter described by a type is entirely missing from the request, then the API must act as if the
+	// API client had sent an instance of that typeProps with the instance value being the value in the default facet.
+	// Similarly, when the API response is completely missing the instance of a type, the client must act as if the API
+	// server had returned an instance of that typeProps with the instance value being the value in the default facet.
+	// A special case is made for URI parameters: for these, the client MUST substitute the value in the default facet
+	// if no instance of the URI parameter was given.
 	Default interface{} `yaml:"default"`
 
 	// Alias for the equivalent "type" property,
@@ -331,9 +151,9 @@ type Type struct {
 	// The "type" property allows for XML and JSON schemas.
 	Schema interface{} `yaml:"schema"`
 
-	// A base type which the current type extends,
+	// A base type which the current typeProps extends,
 	// or more generally a type expression.
-	// A base type which the current type extends or just wraps.
+	// A base type which the current typeProps extends or just wraps.
 	// The value of a type node MUST be either :
 	//    a) the name of a user-defined type or
 	//    b) the name of a built-in RAML data type (object, array, or one of the scalar types) or
@@ -362,15 +182,17 @@ type Type struct {
 	// Its value is a string and MAY be formatted using markdown.
 	Description string `yaml:"description" json:"description"`
 
-	// TODO : annotation names
+	// A map of additional, user-defined restrictions that will be inherited and applied by any extending subtype
+	Facets map[string]interface{} `yaml:"facets"`
 
-	// TODO : facets
+	// The capability to configure XML serialization of this type instance.
+	XML interface{} `yaml:"xml"`
 
 	// The properties that instances of this type may or must have.
 	// we use `interface{}` as property type to support syntactic sugar & shortcut
 	Properties map[string]interface{} `yaml:"properties" json:"properties"`
 
-	// -------- Below facets are available for object type --------------//
+	// -------- Below facets are available for object typeProps --------------//
 
 	// The minimum number of properties allowed for instances of this type.
 	MinProperties int `yaml:"minProperties" json:"minProperties"`
@@ -379,7 +201,6 @@ type Type struct {
 	MaxProperties int `yaml:"maxProperties" json:"maxProperties"`
 
 	// A Boolean that indicates if an object instance has additional properties.
-	// TODO: Default : true
 	AdditionalProperties string `yaml:"additionalProperties" json:"additionalProperties"`
 
 	// Determines the concrete type of an individual object at runtime when,
@@ -443,9 +264,7 @@ type Type struct {
 
 	// ---------- facets for file --------------------------------//
 	// A list of valid content-type strings for the file. The file type */* MUST be a valid value.
-	FileTypes string `yaml:"fileTypes" json:"fileTypes"`
-
-	_apiDef *APIDefinition
+	FileTypes []string `yaml:"fileTypes" json:"fileTypes"`
 }
 
 // GetProperty returns property with given name
@@ -462,14 +281,14 @@ func (t *Type) GetProperty(name string) Property {
 }
 
 // IsBuiltin if a type is an RAML builtin type.
-func (t Type) IsBuiltin() bool {
+func (t typeProps) IsBuiltin() bool {
 	_, ok := scalarTypes[t.TypeString()]
 	return ok
 }
 
 // Parents returns parents of this Type.
 // "object" is not considered a parent
-func (t Type) Parents() []string {
+func (t typeProps) Parents() []string {
 	if parents, ok := t.MultipleInheritance(); ok {
 		return parents
 	}
@@ -482,7 +301,7 @@ func (t Type) Parents() []string {
 
 // IsJSONType true if this Type
 // has JSON scheme that defines it's type
-func (t Type) IsJSONType() bool {
+func (t typeProps) IsJSONType() bool {
 	tStr := t.TypeString()
 	tStr = strings.TrimSpace(tStr)
 	return strings.HasPrefix(tStr, "{") && strings.HasSuffix(tStr, "}")
@@ -492,7 +311,7 @@ func (t Type) IsJSONType() bool {
 // inherit from single object which is not:
 // - basic/scalar type
 // - object
-func (t Type) SingleInheritance() (string, bool) {
+func (t typeProps) SingleInheritance() (string, bool) {
 	if t.IsJSONType() {
 		return "", false
 	}
@@ -509,7 +328,7 @@ func (t Type) SingleInheritance() (string, bool) {
 }
 
 // MultipleInheritance returns all types inherited by this type
-func (t Type) MultipleInheritance() ([]string, bool) {
+func (t typeProps) MultipleInheritance() ([]string, bool) {
 	if t.IsJSONType() {
 		return nil, false
 	}
@@ -524,7 +343,7 @@ func (t Type) MultipleInheritance() ([]string, bool) {
 
 // IsMultipleInheritance returns true if this type
 // has multiple inheritance
-func (t Type) IsMultipleInheritance() bool {
+func (t typeProps) IsMultipleInheritance() bool {
 	_, ok := t.MultipleInheritance()
 	return ok
 }
@@ -557,13 +376,13 @@ func interfaceToString(data interface{}) string {
 
 // TypeString returns string representation
 // of this Type field
-func (t Type) TypeString() string {
+func (t typeProps) TypeString() string {
 	return interfaceToString(t.Type)
 }
 
 // IsArray checks if this type is an Array
 // see specs at http://docs.raml.org/specs/1.0/#raml-10-spec-array-types
-func (t Type) IsArray() bool {
+func (t typeProps) IsArray() bool {
 	if t.IsJSONType() {
 		return false
 	}
@@ -571,16 +390,16 @@ func (t Type) IsArray() bool {
 }
 
 // ArrayType returns type of the array
-func (t Type) ArrayType() string {
+func (t typeProps) ArrayType() string {
 	if t.TypeString() == "array" {
 		return interfaceToString(t.Items)
 	}
 	return strings.TrimSuffix(t.TypeString(), "[]")
 }
 
-// IsBidimensiArray returns true
+// IsBidimensionalArray returns true
 // if it is a bidimensional array
-func (t Type) IsBidimensiArray() bool {
+func (t typeProps) IsBidimensionalArray() bool {
 	if t.IsJSONType() {
 		return false
 	}
@@ -589,19 +408,19 @@ func (t Type) IsBidimensiArray() bool {
 
 // BidimensiArrayType returns type
 // of a bidimensional array
-func (t Type) BidimensiArrayType() string {
+func (t typeProps) BidimensiArrayType() string {
 	return strings.TrimSuffix(t.TypeString(), "[][]")
 }
 
 // IsEnum type check if this type is an enum
 // http://docs.raml.org/specs/1.0/#raml-10-spec-enums
-func (t Type) IsEnum() bool {
+func (t typeProps) IsEnum() bool {
 	return t.Enum != nil
 }
 
 // IsUnion checks if a type is Union type
 // see http://docs.raml.org/specs/1.0/#raml-10-spec-union-types
-func (t Type) IsUnion() bool {
+func (t typeProps) IsUnion() bool {
 	if t.IsJSONType() {
 		return false
 	}
@@ -609,7 +428,7 @@ func (t Type) IsUnion() bool {
 }
 
 // Union returns union type of this type
-func (t Type) Union() ([]string, bool) {
+func (t typeProps) Union() ([]string, bool) {
 	if !t.IsUnion() {
 		return nil, false
 	}
@@ -622,7 +441,7 @@ func (t Type) Union() ([]string, bool) {
 
 // IsAlias returns true if this Type is
 // alias of another Type
-func (t Type) IsAlias() bool {
+func (t typeProps) IsAlias() bool {
 	if t.IsMultipleInheritance() || t.IsArray() || t.IsUnion() || t.TypeString() == "object" {
 		return false
 	}
@@ -654,7 +473,7 @@ func (t *Type) postProcess(name string, apiDef *APIDefinition) error {
 }
 
 // parse property with `?` suffix as optional property
-func (t *Type) parseOptionalProperty(name string) {
+func (t *typeProps) parseOptionalProperty(name string) {
 	if !strings.HasSuffix(name, "?") {
 		return
 	}
@@ -686,7 +505,7 @@ func (t *Type) parseOptionalProperty(name string) {
 }
 
 // create type from item with inline type definition
-func (t *Type) createTypeFromPropItems(name string, apiDef *APIDefinition) error {
+func (t *typeProps) createTypeFromPropItems(name string, apiDef *APIDefinition) error {
 	p := t.Properties[name]
 
 	// propMap is this properties as map
@@ -738,7 +557,7 @@ func (t *Type) createTypeFromPropItems(name string, apiDef *APIDefinition) error
 }
 
 // create type from property's property
-func (t *Type) createTypeFromPropProperty(name string, apiDef *APIDefinition) error {
+func (t *typeProps) createTypeFromPropProperty(name string, apiDef *APIDefinition) error {
 	p := t.Properties[name]
 	// only process map[interface]interface{}
 	propMap, ok := p.(map[interface{}]interface{})
@@ -778,7 +597,7 @@ func (t *Type) createTypeFromPropProperty(name string, apiDef *APIDefinition) er
 	}
 	return nil
 }
-func (t *Type) postProcessJSONSchema() error {
+func (t *typeProps) postProcessJSONSchema() error {
 	var jt JSONSchema
 
 	if err := json.Unmarshal([]byte(t.TypeString()), &jt); err != nil {
@@ -797,71 +616,4 @@ func (t *Type) postProcessJSONSchema() error {
 
 	t.Type = "object"
 	return nil
-}
-
-// BodiesProperty defines a Body's property
-type BodiesProperty struct {
-	// we use `interface{}` as property type to support syntactic sugar & shortcut
-	Properties map[string]interface{} `yaml:"properties"`
-
-	Type interface{}
-
-	Items interface{}
-}
-
-// TypeString returns string representation of the type of the body
-func (bp BodiesProperty) TypeString() string {
-	return interfaceToString(bp.Type)
-}
-
-// GetProperty gets property with given name
-// from a bodies
-func (bp BodiesProperty) GetProperty(name string) Property {
-	p, ok := bp.Properties[name]
-	if !ok {
-		panic(fmt.Errorf("can't find property name %v", name))
-	}
-	return toProperty(name, p)
-}
-
-// - normalize inline array definition
-// - TODO : handle inlined type definition as part of
-//	 https://github.com/Jumpscale/go-raml/issues/96
-func (bp *BodiesProperty) postProcess() {
-	bp.normalizeArray()
-}
-
-// change this form
-// type: array
-// items:
-//   type: something
-//
-// to this form
-// type: something[]
-func (bp *BodiesProperty) normalizeArray() {
-	// `type` and `items` can't be nil
-	if bp.Type == nil || bp.Items == nil {
-		return
-	}
-
-	// make sure `type` value = 'array'
-	typeStr, ok := bp.Type.(string)
-	if !ok && typeStr != arrayType {
-		return
-	}
-
-	// check items value
-	switch item := bp.Items.(type) {
-	case string:
-		bp.Type = item + "[]"
-		bp.Items = nil
-	case map[interface{}]interface{}:
-		tip, ok := item["type"].(string)
-		if !ok {
-			return
-		}
-		bp.Type = tip + "[]"
-		delete(item, "type")
-		bp.Items = item
-	}
 }

@@ -13,8 +13,12 @@ var resourceRegexp = regexp.MustCompile("^/.*$")
 // APIDefinition describes the basic information of an API, such as its
 // title and base URI, and describes how to define common schema references.
 type APIDefinition struct {
-	RAMLVersion string `yaml:"-"`
+	definitionProps `yaml:",inline"`
+	RAMLVersion     string      `yaml:"-"`
+	Annotations     Annotations `yaml:",inline"`
+}
 
+type definitionProps struct {
 	// A short, plain-text label for the API.
 	Title string `yaml:"title" validate:"nonzero"`
 
@@ -51,7 +55,7 @@ type APIDefinition struct {
 	// The media type applies to requests having a body,
 	// the expected responses, and examples using the same sequence of media type strings.
 	// Each value needs to conform to the media type specification in RFC6838.
-	MediaType string `yaml:"mediaType"`
+	MediaType MediaType `yaml:"mediaType"`
 
 	// Additional overall documentation for the API.
 	// The API definition can include a variety of documents that serve as a
@@ -75,7 +79,8 @@ type APIDefinition struct {
 	// Declarations of resource types for use within the API.
 	ResourceTypes map[string]ResourceType `yaml:"resourceTypes"`
 
-	// TODO : annotations types
+	// Declarations of annotation types for use by Annotations.
+	AnnotationTypes map[string]interface{} `yaml:"annotationTypes"`
 
 	// Declarations of security schemes for use within the API.
 	SecuritySchemes map[string]SecurityScheme `yaml:"securitySchemes"`
@@ -93,7 +98,7 @@ type APIDefinition struct {
 
 	Libraries map[string]*Library `yaml:"-"`
 
-	Filename string
+	Filename string `yaml:"-"`
 }
 
 //UnmarshalYAML will process most fields through the regular decode functionality, but adds extra logic for resources
@@ -105,29 +110,59 @@ func (d *APIDefinition) UnmarshalYAML(node *yaml.Node) error {
 		return err
 	}
 
-	var resources = map[string]Resource{}
-	for i, childNode := range node.Content {
-		if resourceRegexp.MatchString(childNode.Value) {
+	if err := node.Decode(&c.Annotations); err != nil {
+		return err
+	}
+
+	c.definitionProps.Resources = make(map[string]Resource)
+	for i := 0; i < len(node.Content); i += 2 {
+		var keyNode = node.Content[i]
+		var valueNode = node.Content[i+1]
+
+		if resourceRegexp.MatchString(keyNode.Value) {
 			var resource = Resource{}
-			//We fetch the next node, which contains the actual data for the resource
-			var mapNode = node.Content[i+1]
-			if mapNode.Tag != "!!map" {
+			if valueNode.Kind != yaml.MappingNode {
 				continue
 			}
 
-			err := mapNode.Decode(&resource)
+			err := valueNode.Decode(&resource)
 			if err != nil {
 				return err
 			}
-			resources[childNode.Value] = resource
+			c.definitionProps.Resources[keyNode.Value] = resource
 		}
 	}
-
-	c.Resources = resources
 
 	*d = APIDefinition(c)
 
 	return nil
+}
+
+// Documentation is the additional overall documentation for the API.
+type Documentation struct {
+	Title   string `yaml:"title"`
+	Content string `yaml:"content"`
+}
+
+//MediaType contains the default media types to use for request and response bodies (payloads)
+type MediaType []string
+
+// UnmarshalYAML makes sure we support both a single and sequence of default media types
+func (m *MediaType) UnmarshalYAML(node *yaml.Node) (err error) {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		*m = append(*m, node.Value)
+		break
+	case yaml.SequenceNode:
+		for _, c := range node.Content {
+			*m = append(*m, c.Value)
+		}
+		break
+	default:
+		err = fmt.Errorf("unparsable type %s", node.ShortTag())
+	}
+
+	return err
 }
 
 // PostProcess doing additional processing
@@ -286,9 +321,11 @@ func (d *APIDefinition) createType(name string, tip interface{},
 	}
 
 	t := Type{
-		Name:       name,
-		Type:       tip,
-		Properties: props,
+		typeProps: typeProps{
+			Name:       name,
+			Type:       tip,
+			Properties: props,
+		},
 	}
 	d.Types[name] = t
 	return true

@@ -73,8 +73,10 @@ func NewJSONSchemaFromProps(t *Type, properties map[string]interface{}, typ, nam
 	}
 	if js.T == nil {
 		js.T = &Type{
-			Type:       typ,
-			Properties: properties,
+			typeProps: typeProps{
+				Type:       typ,
+				Properties: properties,
+			},
 		}
 	}
 	return js
@@ -181,7 +183,7 @@ func newProperty(rp Property) property {
 	_, isScalar := scalarTypes[rp.TypeString()]
 
 	// complex type
-	if rp.Type != "" && !isScalar && !rp.IsArray() && !rp.IsBidimensiArray() {
+	if rp.Type != "" && !isScalar && !rp.IsArray() && !rp.IsBidimensionalArray() {
 		return property{
 			Name:     rp.Name,
 			Ref:      rp.TypeString() + fileSuffix,
@@ -234,7 +236,7 @@ func newProperty(rp Property) property {
 	}
 
 	// array
-	if rp.IsArray() && !rp.IsBidimensiArray() {
+	if rp.IsArray() && !rp.IsBidimensionalArray() {
 		p.Type = "array"
 		p.Items = newArrayItem(rp.ArrayType())
 	}
@@ -263,5 +265,5 @@ func (p *property) toRAMLProperty() Property {
 }
 
 func isPropTypeSupported(p Property) bool {
-	return !p.IsBidimensiArray() && !p.IsUnion()
+	return !p.IsBidimensionalArray() && !p.IsUnion()
 }

@@ -8,9 +8,8 @@ import (
 
 func TestTypeInType(t *testing.T) {
 	apiDef := new(APIDefinition)
-	//TODO: look into the type loading again
 	SkipConvey("Type in type's properties", t, func() {
-		err := ParseFile("./samples/types.raml", apiDef)
+		err := ParseFile("./testdata/types.raml", apiDef)
 		So(err, ShouldBeNil)
 
 		action, ok := apiDef.Types["Action"]
@@ -20,14 +19,14 @@ func TestTypeInType(t *testing.T) {
 		So(name.Type, ShouldEqual, "string")
 
 		recurring := action.GetProperty("recurring")
-		So(recurring.TypeString(), ShouldEqual, "string")
+		So(recurring.TypeString(), ShouldEqual, "Actionrecurring")
 
 		// check the inline type
-		ar, ok := apiDef.Types["Action"]
+		ar, ok := apiDef.Types["Actionrecurring"]
 		So(ok, ShouldBeTrue)
 
-		// Must work via .GetProperty
-		period := ar.GetProperty("recurring")
+		// Must work via .GetPropert
+		period := ar.GetProperty("period")
 		So(period.TypeString(), ShouldEqual, "integer")
 
 		// Also must work via .ToProperty

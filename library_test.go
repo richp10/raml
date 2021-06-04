@@ -9,7 +9,7 @@ import (
 func TestLibraries(t *testing.T) {
 	Convey("Libraries", t, func() {
 		apiDef := new(APIDefinition)
-		err := ParseFile("./samples/simple_with_lib.raml", apiDef)
+		err := ParseFile("./testdata/simple_with_lib.raml", apiDef)
 		So(err, ShouldBeNil)
 
 		Convey("two level library", func() {

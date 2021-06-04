@@ -7,8 +7,16 @@ import (
 
 // Method are operations that are performed on a resource
 type Method struct {
+	methodProps `yaml:",inline"`
+	Annotations Annotations `yaml:",inline"`
+
 	Name string
 
+	// name of the resource type this method inherited
+	resourceTypeName string
+}
+
+type methodProps struct {
 	// An alternate, human-friendly method name in the context of the resource.
 	// If the displayName property is not defined for a method,
 	// documentation tools SHOULD refer to the resource by its property key,
@@ -18,8 +26,6 @@ type Method struct {
 	// A longer, human-friendly description of the method in the context of the resource.
 	// Its value is a string and MAY be formatted using markdown.
 	Description string `yaml:"description"`
-
-	// TODO : annotation
 
 	// Detailed information about any query parameters needed by this method.
 	// Mutually exclusive with queryString.
@@ -53,9 +59,6 @@ type Method struct {
 
 	// The security schemes that apply to this method.
 	SecuredBy []DefinitionChoice `yaml:"securedBy"`
-
-	// name of the resource type this method inherited
-	resourceTypeName string
 }
 
 func newMethod(name string) *Method {
@@ -248,6 +251,7 @@ func (m *Method) inheritResponses(parent map[HTTPCode]Response, dicts map[string
 // The property values describe the corresponding responses.
 // Each value is a response declaration.
 type Response struct {
+	annotations Annotations `yaml:",inline"`
 
 	// HTTP status code of the response
 	HTTPCode HTTPCode
@@ -256,8 +260,6 @@ type Response struct {
 	// A substantial, human-friendly description of a response.
 	// Its value is a string and MAY be formatted using markdown.
 	Description string
-
-	// TODO : annotation
 
 	// An API's methods may support custom header values in responses
 	// Detailed information about any response headers returned by this method
@@ -309,6 +311,7 @@ type Body struct {
 }
 
 // Bodies is Container of Body types, necessary because of technical reasons.
+//TODO: rework this bit to be more reflective of the actual structure of RAML
 type Bodies struct {
 
 	// Instead of using a simple map[HTTPHeader]Body for the body
@@ -416,4 +419,71 @@ func (b *Bodies) postProcess() {
 	}
 
 	b.ApplicationJSON.postProcess()
+}
+
+// BodiesProperty defines a Body's property
+type BodiesProperty struct {
+	// we use `interface{}` as property type to support syntactic sugar & shortcut
+	Properties map[string]interface{} `yaml:"properties"`
+
+	Type interface{}
+
+	Items interface{}
+}
+
+// TypeString returns string representation of the type of the body
+func (bp BodiesProperty) TypeString() string {
+	return interfaceToString(bp.Type)
+}
+
+// GetProperty gets property with given name
+// from a bodies
+func (bp BodiesProperty) GetProperty(name string) Property {
+	p, ok := bp.Properties[name]
+	if !ok {
+		panic(fmt.Errorf("can't find property name %v", name))
+	}
+	return toProperty(name, p)
+}
+
+// - normalize inline array definition
+// - TODO : handle inlined type definition as part of
+//	 https://github.com/Jumpscale/go-raml/issues/96
+func (bp *BodiesProperty) postProcess() {
+	bp.normalizeArray()
+}
+
+// change this form
+// type: array
+// items:
+//   type: something
+//
+// to this form
+// type: something[]
+func (bp *BodiesProperty) normalizeArray() {
+	// `type` and `items` can't be nil
+	if bp.Type == nil || bp.Items == nil {
+		return
+	}
+
+	// make sure `type` value = 'array'
+	typeStr, ok := bp.Type.(string)
+	if !ok && typeStr != arrayType {
+		return
+	}
+
+	// check items value
+	switch item := bp.Items.(type) {
+	case string:
+		bp.Type = item + "[]"
+		bp.Items = nil
+	case map[interface{}]interface{}:
+		tip, ok := item["type"].(string)
+		if !ok {
+			return
+		}
+		bp.Type = tip + "[]"
+		delete(item, "type")
+		bp.Items = item
+	}
 }
