@@ -34,7 +34,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -42,6 +41,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
+
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -191,6 +192,10 @@ func preProcess(originalContents io.Reader, workingDirectory string) ([]byte, er
 		if idx := strings.Index(line, "!include"); idx != -1 {
 
 			included := line[idx+includeStringLen:]
+
+			rightOfDelimiter := strings.Join(strings.Split(included, "#")[1:], "#")
+			included = strings.TrimSuffix(included, rightOfDelimiter)
+			included = strings.TrimSuffix(included, "#")
 
 			preprocessedContents.Write([]byte(line[:idx]))
 
