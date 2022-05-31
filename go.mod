@@ -1,6 +1,6 @@
-module github.com/demeyerthom/raml
+module github.com/richp10/raml
 
-go 1.16
+go 1.18
 
 require (
 	bitbucket.org/pkg/inflect v0.0.0-20130829110746-8961c3750a47
