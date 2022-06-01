@@ -34,7 +34,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gigforks/yaml"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -43,6 +42,8 @@ import (
 	"reflect"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/gigforks/yaml"
 )
 
 var (
@@ -208,6 +209,10 @@ func preProcess(originalContents io.Reader, workingDirectory string) ([]byte, er
 		if idx := strings.Index(line, "!include"); idx != -1 {
 
 			included := line[idx+includeStringLen:]
+
+			rightOfDelimiter := strings.Join(strings.Split(included, "#")[1:], "#")
+			included = strings.TrimSuffix(included, rightOfDelimiter)
+			included = strings.TrimSuffix(included, "#")
 
 			preprocessedContents.Write([]byte(line[:idx]))
 
