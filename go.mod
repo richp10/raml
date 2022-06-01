@@ -1,4 +1,4 @@
-module github.com/demeyerthom/raml
+module github.com/richp10/raml
 
 go 1.18
 
